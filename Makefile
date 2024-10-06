@@ -1,8 +1,8 @@
 NAME := woody_woodpacker
 
+PATH_INCLUDES := includes
 PATH_SRCS := srcs
 PATH_OBJS := objs
-PATH_INCLUDES := includes
 
 INCLUDES := $(wildcard $(PATH_INCLUDES)/*.h)
 SRCS := $(wildcard $(PATH_SRCS)/*.c)
