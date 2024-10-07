@@ -5,12 +5,14 @@
 #include <string.h>
 #include <unistd.h>
 
+static void panic_syscall(const char* name) {
+    perror(name);
+    exit(EXIT_FAILURE);
+}
+
 static Elf64_Ehdr* read_elf_file(const char* input_file) {
     FILE* f = fopen(input_file, "rb");
-    if (!f) {
-        perror("fopen");
-        exit(EXIT_FAILURE);
-    }
+    if (!f) panic_syscall("fopen");
 
     fseek(f, 0, SEEK_END);
     size_t filesize = ftell(f);
@@ -18,16 +20,14 @@ static Elf64_Ehdr* read_elf_file(const char* input_file) {
 
     uint8_t* buffer = malloc(filesize);
     if (!buffer) {
-        perror("malloc");
         fclose(f);
-        exit(EXIT_FAILURE);
+        panic_syscall("malloc");
     }
 
     if (fread(buffer, 1, filesize, f) != filesize) {
-        perror("fread");
         fclose(f);
         free(buffer);
-        exit(EXIT_FAILURE);
+        panic_syscall("fread");
     }
 
     fclose(f);
