@@ -49,15 +49,12 @@ static Elf64_Phdr* find_code_header(Elf64_Ehdr* ehdr) {
     for (int i = 0; i < ehdr->e_phnum; i++) {
         if (phdr[i].p_type == PT_LOAD && (phdr[i].p_flags & PF_X)) {
             code_phdr = &phdr[i];
-            break;
+            return code_phdr;
         }
     }
-    if (!code_phdr) {
-        fprintf(stderr, "No executable segment found\n");
-        free(ehdr);
-        exit(EXIT_FAILURE);
-    }
-    return code_phdr;
+    fprintf(stderr, "No executable segment found\n");
+    free(ehdr);
+    exit(EXIT_FAILURE);
 }
 
 int main(int argc, char* argv[]) {
