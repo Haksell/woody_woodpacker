@@ -1,3 +1,5 @@
 #include "woody.h"
 
-int main() { printf("%s\n", NAME); }
+extern size_t ft_strlen(const char* str);
+
+int main() { printf("%s %zu\n", NAME, ft_strlen(NAME)); }
