@@ -43,9 +43,14 @@ static Elf64_Ehdr* read_elf_file(const char* input_file) {
 
     Elf64_Ehdr* ehdr = (Elf64_Ehdr*)buffer;
     if (memcmp(ehdr->e_ident, ELFMAG, SELFMAG) != 0 ||
-        ehdr->e_ident[EI_CLASS] != ELFCLASS64) {
+        ehdr->e_ident[EI_CLASS] != ELFCLASS64 || ehdr->e_machine != EM_X86_64) {
         free(buffer);
         panic("File architecture not suported. x86_64 only\n");
+    }
+
+    if (ehdr->e_type != ET_EXEC) {
+        free(buffer);
+        panic("The file is not executable.\n");
     }
 
     return ehdr;
@@ -59,7 +64,7 @@ static Elf64_Phdr* find_code_header(Elf64_Ehdr* ehdr) {
         }
     }
     free(ehdr);
-    panic("No executable segment found\n");
+    panic("No executable segment found.\n");
     return NULL;
 }
 
@@ -67,6 +72,12 @@ int main(int argc, char* argv[]) {
     if (argc != 2) panic("Usage: %s <input_binary>\n", argv[0]);
     Elf64_Ehdr* ehdr = read_elf_file(argv[1]);
     Elf64_Phdr* code_phdr = find_code_header(ehdr);
+
     printf("code_phdr->p_paddr=%zu\n", code_phdr->p_paddr);
+
+    // TODO: encrypt code segment
+    // TODO: inject decryptor stub
+    // TODO: save modified elf
+
     return EXIT_SUCCESS;
 }
