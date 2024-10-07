@@ -7,6 +7,8 @@
 #include <string.h>
 #include <unistd.h>
 
+#define KEY 42
+
 static void panic(const char* format, ...) {
     va_list args;
     va_start(args, format);
@@ -68,14 +70,17 @@ static Elf64_Phdr* find_code_header(Elf64_Ehdr* ehdr) {
     return NULL;
 }
 
+static void encrypt_segment(Elf64_Ehdr* ehdr, Elf64_Phdr* code_phdr) {
+    uint8_t* code_segment = (uint8_t*)ehdr + code_phdr->p_offset;
+    for (size_t i = 0; i < code_phdr->p_filesz; ++i) code_segment[i] ^= KEY;
+}
+
 int main(int argc, char* argv[]) {
     if (argc != 2) panic("Usage: %s <input_binary>\n", argv[0]);
     Elf64_Ehdr* ehdr = read_elf_file(argv[1]);
     Elf64_Phdr* code_phdr = find_code_header(ehdr);
+    encrypt_segment(ehdr, code_phdr);
 
-    printf("code_phdr->p_paddr=%zu\n", code_phdr->p_paddr);
-
-    // TODO: encrypt code segment
     // TODO: inject decryptor stub
     // TODO: save modified elf
 
