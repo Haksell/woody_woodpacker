@@ -7,7 +7,7 @@
 #include <string.h>
 #include <unistd.h>
 
-void panic(const char* format, ...) {
+static void panic(const char* format, ...) {
     va_list args;
     va_start(args, format);
     vfprintf(stderr, format, args);
