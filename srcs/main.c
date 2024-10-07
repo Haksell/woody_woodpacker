@@ -50,7 +50,7 @@ static Elf64_Ehdr* read_elf_file(const char* input_file) {
 
     if (ehdr->e_type != ET_EXEC) {
         free(buffer);
-        panic("The file is not executable.\n");
+        panic("The file is not an executable.\n");
     }
 
     return ehdr;
