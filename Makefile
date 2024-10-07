@@ -51,16 +51,4 @@ fclean: clean
 re: fclean
 	@$(MAKE) -s $(NAME)
 
-run: all
-	@./$(NAME)
-
-rerun: re
-	@./$(NAME)
-
-resources:
-	rm -rf resources
-	wget https://cdn.intra.42.fr/document/document/15758/resources.tgz
-	tar xvf resources.tgz
-	rm resources.tgz
-
-.PHONY: all clean fclean re run rerun resources
+.PHONY: all clean fclean re
