@@ -157,7 +157,7 @@ size_t huffman_compress(
         size_t end = start + compressor->sizes[byte];
         for (size_t j = start; j < end; ++j) {
             bool bit = compressor->bits[j >> 6] & (1 << (j & 63));
-            (*compressed)[compressed_idx >> 6] |= bit << (1 << (compressed_idx & 63));
+            (*compressed)[compressed_idx >> 6] |= bit << (compressed_idx & 63);
             ++compressed_idx;
         }
     }
