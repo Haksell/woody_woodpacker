@@ -18,41 +18,62 @@ static void error(const char* name) {
     panic("woody_woodpacker: %s: %s\n", name, strerror(errno));
 }
 
-int main(int argc, char* argv[]) {
-    if (argc != 2) panic("Usage: %s <input_binary>\n", argv[0]);
+size_t read_elf_file(const char* input_file, uint8_t** buffer) {
+    FILE* f = fopen(input_file, "rb");
+    if (!f) error("fopen");
 
-    // Open the ELF file
-    FILE* f = fopen(argv[1], "rb");
-    if (!f) panic("Cannot open file %s\n", argv[1]);
-
-    // Get the file size
     fseek(f, 0, SEEK_END);
     size_t filesize = ftell(f);
     fseek(f, 0, SEEK_SET);
 
-    // Read the entire file into memory
-    char* buffer = malloc(filesize);
-    if (!buffer) panic("Memory allocation failed\n");
+    *buffer = malloc(filesize);
+    if (!*buffer) {
+        fclose(f);
+        error("malloc");
+    }
 
-    if (fread(buffer, 1, filesize, f) != filesize) panic("Failed to read file\n");
+    if (fread(*buffer, 1, filesize, f) != filesize) {
+        fclose(f);
+        free(*buffer);
+        error("fread");
+    }
+
     fclose(f);
 
-    // Get the ELF header
-    Elf64_Ehdr* ehdr = (Elf64_Ehdr*)buffer;
+    Elf64_Ehdr* ehdr = (Elf64_Ehdr*)*buffer;
+    if (memcmp(ehdr->e_ident, ELFMAG, SELFMAG) != 0 ||
+        ehdr->e_ident[EI_CLASS] != ELFCLASS64 || ehdr->e_machine != EM_X86_64) {
+        free(*buffer);
+        panic("File architecture not suported. x86_64 only\n");
+    }
 
-    // Verify it's an ELF64 file
-    if (memcmp(ehdr->e_ident, ELFMAG, SELFMAG) != 0) panic("Not an ELF file\n");
-    if (ehdr->e_ident[EI_CLASS] != ELFCLASS64) panic("Not an ELF64 file\n");
+    if (ehdr->e_type != ET_EXEC) {
+        free(*buffer);
+        panic("The file is not an executable.\n");
+    }
 
-    // Find the last PT_LOAD segment
-    Elf64_Phdr* phdrs = (Elf64_Phdr*)(buffer + ehdr->e_phoff);
-    Elf64_Phdr* exec_phdr = NULL;
+    return filesize;
+}
+
+static Elf64_Phdr* find_code_header(Elf64_Ehdr* ehdr) {
+    Elf64_Phdr* phdr = (Elf64_Phdr*)((char*)ehdr + ehdr->e_phoff);
     for (int i = 0; i < ehdr->e_phnum; i++) {
-        if (phdrs[i].p_type == PT_LOAD && (phdrs[i].p_flags & PF_X)) {
-            exec_phdr = &phdrs[i];
+        if (phdr[i].p_type == PT_LOAD && (phdr[i].p_flags & PF_X)) {
+            return phdr + i;
         }
     }
-    if (!exec_phdr) panic("No PT_LOAD segment found\n");
+    free(ehdr);
+    panic("No executable segment found.\n");
+    return NULL;
+}
+
+int main(int argc, char* argv[]) {
+    if (argc != 2) panic("Usage: %s <input_binary>\n", argv[0]);
+
+    uint8_t* buffer;
+    size_t filesize = read_elf_file(argv[1], &buffer);
+    Elf64_Ehdr* ehdr = (Elf64_Ehdr*)buffer;
+    Elf64_Phdr* code_phdr = find_code_header(ehdr);
 
     uint8_t payload
         [] = "\x48\xc7\xc0\x01\x00\x00\x00" // mov rax, 1
@@ -69,12 +90,12 @@ int main(int argc, char* argv[]) {
     memcpy(&payload[payload_size - sizeof(size_t)], &ehdr->e_entry, sizeof(size_t));
 
     // Adjust segment sizes
-    exec_phdr->p_filesz += payload_size;
-    exec_phdr->p_memsz += payload_size;
+    code_phdr->p_filesz += payload_size;
+    code_phdr->p_memsz += payload_size;
 
     // Calculate where to place the new code
-    uint64_t exec_offset = exec_phdr->p_offset + exec_phdr->p_filesz;
-    uint64_t exec_vaddr = exec_phdr->p_vaddr + exec_phdr->p_filesz;
+    uint64_t exec_offset = code_phdr->p_offset + code_phdr->p_filesz;
+    uint64_t exec_vaddr = code_phdr->p_vaddr + code_phdr->p_filesz;
 
     // Update the entry point
     ehdr->e_entry = exec_vaddr;
@@ -83,7 +104,7 @@ int main(int argc, char* argv[]) {
     memcpy(buffer + exec_offset, payload, payload_size);
 
     // Write the modified buffer back to the file
-    f = fopen("woody", "wb");
+    FILE* f = fopen("woody", "wb");
     if (!f) error("fopen");
     if (fwrite(buffer, 1, filesize + payload_size, f) != filesize + payload_size)
         error("fwrite");
