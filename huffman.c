@@ -13,6 +13,13 @@ typedef struct HuffmanNode {
     struct HuffmanNode* right;
 } HuffmanNode;
 
+typedef struct HuffmanMap {
+    uint8_t pos[256];
+    uint8_t size[256];
+    size_t num_bits;
+    uint8_t* bits;
+} HuffmanMap;
+
 HuffmanNode* huffman_leaf(uint8_t byte, size_t frequency) {
     HuffmanNode* node = malloc(sizeof(HuffmanNode));
     node->byte = byte;
@@ -30,20 +37,20 @@ HuffmanNode* huffman_pair(HuffmanNode* left, HuffmanNode* right) {
     return node;
 }
 
-void display_huffman_tree(HuffmanNode* root, size_t indentation) {
-    if (!root) return;
-    if (root->left) {
-        display_huffman_tree(root->left, indentation + 2);
+void display_huffman_tree(HuffmanNode* tree, size_t indentation) {
+    if (!tree) return;
+    if (tree->left) {
+        display_huffman_tree(tree->left, indentation + 2);
         for (size_t i = 0; i < indentation; ++i) printf(" ");
-        printf("- %zu\n", root->frequency);
-        display_huffman_tree(root->right, indentation + 2);
+        printf("- %zu\n", tree->frequency);
+        display_huffman_tree(tree->right, indentation + 2);
     } else {
         for (size_t i = 0; i < indentation; ++i) printf(" ");
-        printf("- %zu (%hhu)\n", root->frequency, root->byte);
+        printf("- %zu (%hhu)\n", tree->frequency, tree->byte);
     }
 }
 
-void huffman_encode(uint8_t* bytes, size_t num_bytes) {
+HuffmanNode* construct_tree(const uint8_t* bytes, size_t num_bytes) {
     size_t frequencies[256] = {0};
     for (size_t i = 0; i < num_bytes; ++i) ++frequencies[bytes[i]];
 
@@ -83,10 +90,58 @@ void huffman_encode(uint8_t* bytes, size_t num_bytes) {
         --num_nodes;
     }
 
-    display_huffman_tree(nodes[0], 0);
+    return nodes[0];
 }
+
+size_t count_bits_in_map(HuffmanNode* tree, size_t depth) {
+    if (!tree || !tree->left) return depth;
+    return count_bits_in_map(tree->left, depth + 1) +
+           count_bits_in_map(tree->right, depth + 1);
+}
+
+void construct_map(HuffmanMap* map, HuffmanNode* tree) {
+    map->num_bits = count_bits_in_map(tree, 0);
+    size_t bytes_in_map = (map->num_bits + 7) >> 3;
+    map->bits = malloc(bytes_in_map); // TODO: check
+    size_t bits_idx;
+    for (uint16_t byte = 0; byte < 256; ++byte) {
+        bits_idx += add_byte_to_map(byte, tree);
+    }
+    printf("%zu\n", map->num_bits);
+}
+
+// size_t count_compressed_bits_in_byte(uint8_t byte, HuffmanNode* tree) {
+//     while (tree) {
+//     }
+// }
+
+// size_t count_compressed_bits_in_bytes(
+//     const uint8_t* bytes,
+//     size_t num_bytes,
+//     HuffmanNode* tree
+// ) {
+//     size_t compressed_bits = 0;
+//     for (size_t i = 0; i < num_bytes; ++i)
+//         compressed_bits += count_compressed_bits_in_byte(bytes[i], tree);
+//     return compressed_bits;
+// }
+
+// size_t huffman_compress(
+//     const uint8_t* bytes,
+//     size_t num_bytes,
+//     HuffmanNode* tree,
+//     uint8_t** compressed
+// ) {
+//     size_t compressed_bits = count_compressed_bits_in_bytes(bytes, num_bytes, tree);
+//     return 0;
+// }
 
 int main() {
     char s[] = "bonjour je mappelle axel et jaime le chocolat";
-    huffman_encode((uint8_t*)s, strlen(s));
+    size_t n = strlen(s);
+    HuffmanNode* tree = construct_tree((uint8_t*)s, n);
+    HuffmanMap map;
+    construct_map(&map, tree);
+    // uint8_t* compressed;
+    // size_t compressed_bits = huffman_compress((uint8_t*)s, n, tree, &compressed);
 }
