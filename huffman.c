@@ -121,12 +121,10 @@ void fill_bits(
     uint16_t depth
 ) {
     if (!tree->left) {
-        uint16_t start = compressor->starts[tree->byte];
-        for (uint16_t i = 0; i < depth; ++i) {
-            uint16_t bit_idx = start + i;
-            // printf("bit_idx->%u %u\n", bit_idx, stack[i]);
-            if (stack[i])
-                compressor->bits[bit_idx >> 6] |= 1llu << (uint64_t)(bit_idx & 63);
+        uint64_t start = compressor->starts[tree->byte];
+        for (uint64_t i = 0; i < depth; ++i) {
+            uint64_t bit_idx = start + i;
+            if (stack[i]) compressor->bits[bit_idx >> 6] |= 1llu << (bit_idx & 63);
         }
     } else {
         stack[depth] = 1;
@@ -142,7 +140,6 @@ void construct_map(Compressor* compressor, HuffmanNode* tree) {
     compressor->bits = calloc((compressor->num_bits + 63) >> 6, 8);
     bool stack[256] = {0};
     fill_bits(compressor, tree, stack, 0);
-    // exit(0);
 }
 
 size_t huffman_compress(
@@ -210,7 +207,7 @@ size_t huffman_decompress(
 }
 
 int main() {
-    char input[] = "ababbabbbabbbba";
+    char input[] = "je mappelle axel et jaime le chocolat";
     printf("%s\n", input);
     size_t n = strlen(input);
     HuffmanNode* tree = construct_tree((uint8_t*)input, n);
