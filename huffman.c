@@ -17,7 +17,7 @@ typedef struct HuffmanNode {
 typedef struct Compressor {
     uint16_t starts[256];
     uint16_t sizes[256];
-    size_t num_bits;
+    uint16_t num_bits;
     uint64_t* bits;
 } Compressor;
 
@@ -103,8 +103,8 @@ void compute_sizes(uint16_t* sizes, HuffmanNode* tree, uint16_t depth) {
     }
 }
 
-size_t compute_starts(Compressor* compressor) {
-    size_t start = 0;
+uint16_t compute_starts(Compressor* compressor) {
+    uint16_t start = 0;
     for (uint16_t byte = 0; byte < 256; ++byte) {
         compressor->starts[byte] = start;
         start += compressor->sizes[byte];
@@ -122,7 +122,9 @@ void fill_bits(
         uint16_t start = compressor->starts[tree->byte];
         for (uint16_t i = 0; i < depth; ++i) {
             uint16_t bit_idx = start + i;
-            compressor->bits[bit_idx >> 6] = stack[i] << (bit_idx & 63);
+            // printf("bit_idx->%u %u\n", bit_idx, stack[i]);
+            if (stack[i])
+                compressor->bits[bit_idx >> 6] |= 1llu << (uint64_t)(bit_idx & 63);
         }
     } else {
         stack[depth] = 1;
@@ -138,6 +140,7 @@ void construct_map(Compressor* compressor, HuffmanNode* tree) {
     compressor->bits = calloc((compressor->num_bits + 63) >> 6, 8);
     bool stack[256] = {0};
     fill_bits(compressor, tree, stack, 0);
+    // exit(0);
 }
 
 size_t huffman_compress(
@@ -153,11 +156,10 @@ size_t huffman_compress(
     size_t compressed_idx = 0;
     for (size_t i = 0; i < num_bytes; ++i) {
         uint8_t byte = bytes[i];
-        size_t start = compressor->starts[byte];
-        size_t end = start + compressor->sizes[byte];
+        uint16_t start = compressor->starts[byte];
+        uint16_t end = start + compressor->sizes[byte];
         for (size_t j = start; j < end; ++j) {
-            bool bit = compressor->bits[j >> 6] & (1 << (j & 63));
-            printf("%zu %d\n", compressed_idx, bit);
+            uint64_t bit = (compressor->bits[j >> 6] >> (j & 63)) & 1;
             (*compressed)[compressed_idx >> 6] |= bit << (compressed_idx & 63);
             ++compressed_idx;
         }
@@ -165,16 +167,32 @@ size_t huffman_compress(
     return compressed_size;
 }
 
+void show_compressed_form(uint64_t* compressed, size_t compressed_bits) {
+    for (size_t i = 0; i < ((compressed_bits + 63) >> 6); ++i)
+        printf("%#018zx ", compressed[i]);
+    printf("\n");
+}
+
 int main() {
-    char s[] = "bonjour je mappelle axel et jaime le chocolat";
-    size_t n = strlen(s);
-    HuffmanNode* tree = construct_tree((uint8_t*)s, n);
+    char input[] = "bonjour je mappelle axel et jaime le chocolat";
+    puts(input);
+    size_t n = strlen(input);
+    HuffmanNode* tree = construct_tree((uint8_t*)input, n);
     Compressor compressor = {0};
     construct_map(&compressor, tree);
     uint64_t* compressed;
-    size_t compressed_bits = huffman_compress((uint8_t*)s, n, &compressor, &compressed);
-    printf("%zu\n", compressed_bits);
-    for (size_t i = 0; i < ((compressed_bits + 63) >> 6); ++i)
-        printf("%#zx ", compressed[i]);
-    printf("\n");
+    size_t compressed_bits = huffman_compress(
+        (uint8_t*)input,
+        n,
+        &compressor,
+        &compressed
+    );
+    show_compressed_form(compressed, compressed_bits);
+    // uint64_t* decompresed_bytes;
+    // size_t decompressed_bytes = huffman_decompress(
+    //     tree,
+    //     compressed,
+    //     compressed_bits,
+    //     &decompresed_bytes
+    // );
 }
