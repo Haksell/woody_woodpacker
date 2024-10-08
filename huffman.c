@@ -122,13 +122,13 @@ void fill_bits(
         uint16_t start = compressor->starts[tree->byte];
         for (uint16_t i = 0; i < depth; ++i) {
             uint16_t bit_idx = start + i;
-            compressor->bits[bit_idx >> 8] = stack[i] & (1 << (bit_idx & 63));
+            compressor->bits[bit_idx >> 6] = stack[i] << (bit_idx & 63);
         }
     } else {
-        fill_bits(compressor, tree->right, stack, depth + 1);
         stack[depth] = 1;
-        fill_bits(compressor, tree->left, stack, depth + 1);
+        fill_bits(compressor, tree->right, stack, depth + 1);
         stack[depth] = 0;
+        fill_bits(compressor, tree->left, stack, depth + 1);
     }
 }
 
@@ -157,6 +157,7 @@ size_t huffman_compress(
         size_t end = start + compressor->sizes[byte];
         for (size_t j = start; j < end; ++j) {
             bool bit = compressor->bits[j >> 6] & (1 << (j & 63));
+            printf("%zu %d\n", compressed_idx, bit);
             (*compressed)[compressed_idx >> 6] |= bit << (compressed_idx & 63);
             ++compressed_idx;
         }
@@ -172,4 +173,8 @@ int main() {
     construct_map(&compressor, tree);
     uint64_t* compressed;
     size_t compressed_bits = huffman_compress((uint8_t*)s, n, &compressor, &compressed);
+    printf("%zu\n", compressed_bits);
+    for (size_t i = 0; i < ((compressed_bits + 63) >> 6); ++i)
+        printf("%#zx ", compressed[i]);
+    printf("\n");
 }
