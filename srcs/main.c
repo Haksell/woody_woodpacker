@@ -39,9 +39,6 @@ int main(int argc, char* argv[]) {
     if (memcmp(ehdr->e_ident, ELFMAG, SELFMAG) != 0) panic("Not an ELF file\n");
     if (ehdr->e_ident[EI_CLASS] != ELFCLASS64) panic("Not an ELF64 file\n");
 
-    // Save the original entry point
-    uint64_t orig_entry = ehdr->e_entry;
-
     // Find the last PT_LOAD segment
     Elf64_Phdr* phdrs = (Elf64_Phdr*)(buffer + ehdr->e_phoff);
     Elf64_Phdr* last_load = NULL;
@@ -57,7 +54,7 @@ int main(int argc, char* argv[]) {
     uint64_t code_vaddr = last_load->p_vaddr + last_load->p_filesz;
 
     // Define the injected code
-    unsigned char code[] = {
+    uint8_t code[] = {
         // mov rax, 1
         0x48,
         0xc7,
@@ -122,7 +119,7 @@ int main(int argc, char* argv[]) {
     size_t code_size = sizeof(code);
 
     // Adjust the code to include the original entry point
-    memcpy(&code[code_size - sizeof(size_t)], &orig_entry, sizeof(size_t));
+    memcpy(&code[code_size - sizeof(size_t)], &ehdr->e_entry, sizeof(size_t));
 
     // Adjust segment sizes
     last_load->p_filesz += code_size;
