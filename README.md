@@ -1,5 +1,6 @@
 # TODO
 
+- [ ] use `mmap`/`munmap`/`mprotect`
 - [ ] move shell code in another section
 - [ ] work with DYN
 - [ ] encryption with xor 42
