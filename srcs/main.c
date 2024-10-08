@@ -75,11 +75,11 @@ static void inject_stub(uint8_t* buffer) {
         [] = "\x48\xc7\xc0\x01\x00\x00\x00" // mov rax, 1
              "\x48\xc7\xc7\x01\x00\x00\x00" // mov rdx, 1
              "\x48\x8d\x35\x16\x00\x00\x00" // lea rsi, [rip+22] (jump to after HACKED)
-             "\x48\xc7\xc2\x07\x00\x00\x00" // mov rdx, 7
+             "\x48\xc7\xc2\x0e\x00\x00\x00" // mov rdx, 14
              "\x0f\x05" // syscall
              "\x48\xc7\xc2\x00\x00\x00\x00" // mov rdx, 0
-             "\xff\x25\x07\x00\x00\x00" // jmp [rip+7]
-             "HACKED\n"
+             "\xff\x25\x0e\x00\x00\x00" // jmp [rip+14]
+             "....WOODY....\n"
              "\x00\x00\x00\x00\x00\x00\x00" // placeholder for jmp address
         ;
     size_t stub_size = sizeof(stub);
