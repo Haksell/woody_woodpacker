@@ -122,7 +122,7 @@ int main(int argc, char* argv[]) {
     size_t code_size = sizeof(code);
 
     // Adjust the code to include the original entry point
-    memcpy(&code[43], &orig_entry, sizeof(size_t));
+    memcpy(&code[sizeof(code) - sizeof(size_t)], &orig_entry, sizeof(size_t));
 
     // Adjust segment sizes
     last_load->p_filesz += code_size;
