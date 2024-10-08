@@ -89,7 +89,7 @@ static void inject_stub(uint8_t* buffer) {
     uint8_t stub
         [] = "\x48\xc7\xc0\x01\x00\x00\x00" // mov rax, 1
              "\x48\xc7\xc7\x01\x00\x00\x00" // mov rdx, 1
-             "\x48\x8d\x35\x16\x00\x00\x00" // lea rsi, [rip+22] (jump to after HACKED)
+             "\x48\x8d\x35\x16\x00\x00\x00" // lea rsi, [rip+22]
              "\x48\xc7\xc2\x0e\x00\x00\x00" // mov rdx, 14
              "\x0f\x05" // syscall
              "\x48\xc7\xc2\x00\x00\x00\x00" // mov rdx, 0
