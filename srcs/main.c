@@ -1,16 +1,21 @@
 #include <elf.h>
+#include <errno.h>
 #include <stdarg.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
-void panic(const char* fmt, ...) {
+static void panic(const char* format, ...) {
     va_list args;
-    va_start(args, fmt);
-    vfprintf(stderr, fmt, args);
+    va_start(args, format);
+    vfprintf(stderr, format, args);
     va_end(args);
-    exit(1);
+    exit(EXIT_FAILURE);
+}
+
+static void error(const char* name) {
+    panic("woody_woodpacker: %s: %s\n", name, strerror(errno));
 }
 
 int main(int argc, char* argv[]) {
@@ -86,10 +91,9 @@ int main(int argc, char* argv[]) {
 
     // Write the modified buffer back to the file
     f = fopen("woody", "wb");
-    if (!f) panic("Cannot open file for writing\n");
-
+    if (!f) error("fopen");
     if (fwrite(buffer, 1, filesize + payload_size, f) != filesize + payload_size)
-        panic("Failed to write to file\n");
+        error("fwrite");
 
     fclose(f);
     free(buffer);
