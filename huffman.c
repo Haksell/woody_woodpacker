@@ -135,7 +135,7 @@ void fill_bits(
 void construct_map(Compressor* compressor, HuffmanNode* tree) {
     compute_sizes(compressor->sizes, tree, 0);
     compressor->num_bits = compute_starts(compressor);
-    compressor->bits = calloc((compressor->num_bits + 63) >> 8, 8);
+    compressor->bits = calloc((compressor->num_bits + 63) >> 6, 8);
     bool stack[256] = {0};
     fill_bits(compressor, tree, stack, 0);
 }
@@ -149,15 +149,15 @@ size_t huffman_compress(
     size_t compressed_size = 0;
     for (size_t i = 0; i < num_bytes; ++i)
         compressed_size += compressor->sizes[bytes[i]];
-    *compressed = calloc((compressed_size + 63) >> 8, 8);
+    *compressed = calloc((compressed_size + 63) >> 6, 8);
     size_t compressed_idx = 0;
     for (size_t i = 0; i < num_bytes; ++i) {
         uint8_t byte = bytes[i];
         size_t start = compressor->starts[byte];
         size_t end = start + compressor->sizes[byte];
         for (size_t j = start; j < end; ++j) {
-            bool bit = compressor->bits[j >> 8] & (1 << (j & 63));
-            (*compressed)[compressed_idx >> 8] |= bit << (1 << (compressed_idx & 63));
+            bool bit = compressor->bits[j >> 6] & (1 << (j & 63));
+            (*compressed)[compressed_idx >> 6] |= bit << (1 << (compressed_idx & 63));
             ++compressed_idx;
         }
     }
@@ -170,7 +170,6 @@ int main() {
     HuffmanNode* tree = construct_tree((uint8_t*)s, n);
     Compressor compressor = {0};
     construct_map(&compressor, tree);
-    // uint64_t* compressed;
-    // size_t compressed_bits = huffman_compress((uint8_t*)s, n, &compressor,
-    // &compressed);
+    uint64_t* compressed;
+    size_t compressed_bits = huffman_compress((uint8_t*)s, n, &compressor, &compressed);
 }
