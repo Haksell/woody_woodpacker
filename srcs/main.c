@@ -80,13 +80,6 @@ int main(int argc, char* argv[]) {
     ehdr->e_entry = exec_vaddr;
 
     // Resize the buffer to accommodate the new code
-    buffer = realloc(buffer, filesize + payload_size);
-    if (!buffer) panic("Memory allocation failed\n");
-
-    // Zero out the new space
-    memset(buffer + filesize, 0, payload_size);
-
-    // Copy the code into the buffer
     memcpy(buffer + exec_offset, payload, payload_size);
 
     // Write the modified buffer back to the file
