@@ -1,4 +1,5 @@
 // TODO: free stuff
+// TODO: fix with alphabets of size 0 and 1
 
 #include <stdbool.h>
 #include <stddef.h>
@@ -6,6 +7,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 typedef struct HuffmanNode {
     uint8_t byte;
@@ -173,9 +175,43 @@ void show_compressed_form(uint64_t* compressed, size_t compressed_bits) {
     printf("\n");
 }
 
+size_t huffman_decompress(
+    HuffmanNode* tree,
+    uint64_t* compressed,
+    size_t compressed_bits,
+    uint8_t** decompressed
+) {
+    HuffmanNode* node = tree;
+
+    size_t decompressed_bytes = 0;
+    for (size_t cidx = 0; cidx < compressed_bits; ++cidx) {
+        uint64_t bit = (compressed[cidx >> 6] >> (cidx & 63)) & 1;
+        node = bit ? node->right : node->left;
+        if (!node->left) {
+            ++decompressed_bytes;
+            node = tree;
+        }
+    }
+
+    *decompressed = malloc(decompressed_bytes);
+
+    size_t didx = 0;
+    for (size_t cidx = 0; cidx < compressed_bits; ++cidx) {
+        uint64_t bit = (compressed[cidx >> 6] >> (cidx & 63)) & 1;
+        node = bit ? node->right : node->left;
+        if (!node->left) {
+            (*decompressed)[didx] = node->byte;
+            ++didx;
+            node = tree;
+        }
+    }
+
+    return decompressed_bytes;
+}
+
 int main() {
-    char input[] = "bonjour je mappelle axel et jaime le chocolat";
-    puts(input);
+    char input[] = "ababbabbbabbbba";
+    printf("%s\n", input);
     size_t n = strlen(input);
     HuffmanNode* tree = construct_tree((uint8_t*)input, n);
     Compressor compressor = {0};
@@ -188,11 +224,12 @@ int main() {
         &compressed
     );
     show_compressed_form(compressed, compressed_bits);
-    // uint64_t* decompresed_bytes;
-    // size_t decompressed_bytes = huffman_decompress(
-    //     tree,
-    //     compressed,
-    //     compressed_bits,
-    //     &decompresed_bytes
-    // );
+    uint8_t* decompressed;
+    size_t decompressed_bytes = huffman_decompress(
+        tree,
+        compressed,
+        compressed_bits,
+        &decompressed
+    );
+    write(STDOUT_FILENO, decompressed, decompressed_bytes);
 }
