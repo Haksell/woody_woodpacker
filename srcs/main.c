@@ -82,6 +82,18 @@ static Elf64_Phdr* find_code_header(Elf64_Ehdr* ehdr) {
     return NULL;
 }
 
+static void check_text_section_has_enough_zeros(Elf64_Ehdr* ehdr, uint8_t* buffer, size_t stub_size) {
+    Elf64_Phdr* code_phdr = find_code_header(ehdr);
+
+    uint8_t* zero_mem = buffer + code_phdr->p_offset + code_phdr->p_filesz;
+
+    for (size_t i = 0; i < stub_size; i++) {
+        if (zero_mem[i] != 0) {
+            panic("There is not enough space to write the stub after the actual main code.");
+        }
+    }
+}
+
 static void inject_stub(uint8_t* buffer) {
     Elf64_Ehdr* ehdr = (Elf64_Ehdr*)buffer;
     Elf64_Phdr* code_phdr = find_code_header(ehdr);
@@ -105,6 +117,7 @@ static void inject_stub(uint8_t* buffer) {
              "\x00\x00\x00\x00\x00\x00\x00" // placeholder for jmp address
         ;
     size_t stub_size = sizeof(stub);
+    check_text_section_has_enough_zeros(ehdr, buffer, stub_size);
     memcpy(&stub[stub_size - sizeof(size_t)], &ehdr->e_entry, sizeof(size_t));
 
     code_phdr->p_filesz += stub_size;
