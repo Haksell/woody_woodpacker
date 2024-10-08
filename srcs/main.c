@@ -47,16 +47,31 @@ size_t read_elf_file(const char* input_file, uint8_t** buffer) {
         panic("File architecture not suported. x86_64 only\n");
     }
 
-    if (ehdr->e_type != ET_EXEC) {
+    if (ehdr->e_type != ET_EXEC && ehdr->e_type != ET_DYN) {
         free(*buffer);
         panic("The file is not an executable.\n");
     }
+
+    if (ehdr->e_type == ET_DYN)
+        fprintf(stderr, "Warning: woody_woodpacker does not handle DYN files yet.\n");
 
     return filesize;
 }
 
 static Elf64_Phdr* find_code_header(Elf64_Ehdr* ehdr) {
     Elf64_Phdr* phdr = (Elf64_Phdr*)((char*)ehdr + ehdr->e_phoff);
+    // for (int i = 0; i < ehdr->e_phnum; i++) {
+    //     printf(
+    //         "%d: %#x %c%c%c\n",
+    //         i,
+    //         phdr[i].p_type,
+    //         (phdr[i].p_flags & PF_R) ? 'R' : '.',
+    //         (phdr[i].p_flags & PF_W) ? 'W' : '.',
+    //         (phdr[i].p_flags & PF_X) ? 'X' : '.'
+    //     );
+    //     if (phdr[i].p_type == PT_LOAD && (phdr[i].p_flags & PF_X)) {
+    //     }
+    // }
     for (int i = 0; i < ehdr->e_phnum; i++) {
         if (phdr[i].p_type == PT_LOAD && (phdr[i].p_flags & PF_X)) {
             return phdr + i;
