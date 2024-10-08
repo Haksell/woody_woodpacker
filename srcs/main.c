@@ -41,116 +41,54 @@ int main(int argc, char* argv[]) {
 
     // Find the last PT_LOAD segment
     Elf64_Phdr* phdrs = (Elf64_Phdr*)(buffer + ehdr->e_phoff);
-    Elf64_Phdr* last_load = NULL;
+    Elf64_Phdr* exec_phdr = NULL;
     for (int i = 0; i < ehdr->e_phnum; i++) {
         if (phdrs[i].p_type == PT_LOAD && (phdrs[i].p_flags & PF_X)) {
-            last_load = &phdrs[i];
+            exec_phdr = &phdrs[i];
         }
     }
-    if (!last_load) panic("No PT_LOAD segment found\n");
+    if (!exec_phdr) panic("No PT_LOAD segment found\n");
 
-    // Calculate where to place the new code
-    uint64_t code_offset = last_load->p_offset + last_load->p_filesz;
-    uint64_t code_vaddr = last_load->p_vaddr + last_load->p_filesz;
-
-    // Define the injected code
-    uint8_t code[] = {
-        // mov rax, 1
-        0x48,
-        0xc7,
-        0xc0,
-        0x01,
-        0x00,
-        0x00,
-        0x00,
-        // mov rdi, 1
-        0x48,
-        0xc7,
-        0xc7,
-        0x01,
-        0x00,
-        0x00,
-        0x00,
-        // lea rsi, [rip+22] (jump to after HACKED)
-        0x48,
-        0x8d,
-        0x35,
-        0x16,
-        0x00,
-        0x00,
-        0x00,
-        // mov rdx, 7
-        0x48,
-        0xc7,
-        0xc2,
-        0x07,
-        0x00,
-        0x00,
-        0x00,
-        // syscall
-        0x0f,
-        0x05,
-        // mov rdx, 0
-        0x48,
-        0xc7,
-        0xc2,
-        0x00,
-        0x00,
-        0x00,
-        0x00,
-        // jmp [rip+7]
-        0xff,
-        0x25,
-        0x07,
-        0x00,
-        0x00,
-        0x00,
-        // "HACKED\n"
-        'H',
-        'A',
-        'C',
-        'K',
-        'E',
-        'D',
-        '\n',
-        // Placeholder for original entry point (8 bytes)
-        0x00,
-        0x00,
-        0x00,
-        0x00,
-        0x00,
-        0x00,
-        0x00,
-        0x00,
-    };
-
-    size_t code_size = sizeof(code);
-
-    // Adjust the code to include the original entry point
-    memcpy(&code[code_size - sizeof(size_t)], &ehdr->e_entry, sizeof(size_t));
+    uint8_t payload
+        [] = "\x48\xc7\xc0\x01\x00\x00\x00" // mov rax, 1
+             "\x48\xc7\xc7\x01\x00\x00\x00" // mov rdx, 1
+             "\x48\x8d\x35\x16\x00\x00\x00" // lea rsi, [rip+22] (jump to after HACKED)
+             "\x48\xc7\xc2\x07\x00\x00\x00" // mov rdx, 7
+             "\x0f\x05" // syscall
+             "\x48\xc7\xc2\x00\x00\x00\x00" // mov rdx, 0
+             "\xff\x25\x07\x00\x00\x00" // jmp [rip+7]
+             "HACKED\n"
+             "\x00\x00\x00\x00\x00\x00\x00" // placeholder for jmp address
+        ;
+    size_t payload_size = sizeof(payload);
+    memcpy(&payload[payload_size - sizeof(size_t)], &ehdr->e_entry, sizeof(size_t));
 
     // Adjust segment sizes
-    last_load->p_filesz += code_size;
-    last_load->p_memsz += code_size;
+    exec_phdr->p_filesz += payload_size;
+    exec_phdr->p_memsz += payload_size;
+
+    // Calculate where to place the new code
+    uint64_t exec_offset = exec_phdr->p_offset + exec_phdr->p_filesz;
+    uint64_t exec_vaddr = exec_phdr->p_vaddr + exec_phdr->p_filesz;
 
     // Update the entry point
-    ehdr->e_entry = code_vaddr;
+    ehdr->e_entry = exec_vaddr;
 
     // Resize the buffer to accommodate the new code
-    buffer = realloc(buffer, filesize + code_size);
+    buffer = realloc(buffer, filesize + payload_size);
     if (!buffer) panic("Memory allocation failed\n");
 
     // Zero out the new space
-    memset(buffer + filesize, 0, code_size);
+    memset(buffer + filesize, 0, payload_size);
 
     // Copy the code into the buffer
-    memcpy(buffer + code_offset, code, code_size);
+    memcpy(buffer + exec_offset, payload, payload_size);
 
     // Write the modified buffer back to the file
     f = fopen("woody", "wb");
     if (!f) panic("Cannot open file for writing\n");
 
-    if (fwrite(buffer, 1, filesize + code_size, f) != filesize + code_size)
+    if (fwrite(buffer, 1, filesize + payload_size, f) != filesize + payload_size)
         panic("Failed to write to file\n");
 
     fclose(f);
