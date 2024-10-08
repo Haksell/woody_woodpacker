@@ -67,15 +67,11 @@ static Elf64_Phdr* find_code_header(Elf64_Ehdr* ehdr) {
     return NULL;
 }
 
-int main(int argc, char* argv[]) {
-    if (argc != 2) panic("Usage: %s <input_binary>\n", argv[0]);
-
-    uint8_t* buffer;
-    size_t filesize = read_elf_file(argv[1], &buffer);
+static void inject_stub(uint8_t* buffer) {
     Elf64_Ehdr* ehdr = (Elf64_Ehdr*)buffer;
     Elf64_Phdr* code_phdr = find_code_header(ehdr);
 
-    uint8_t payload
+    uint8_t stub
         [] = "\x48\xc7\xc0\x01\x00\x00\x00" // mov rax, 1
              "\x48\xc7\xc7\x01\x00\x00\x00" // mov rdx, 1
              "\x48\x8d\x35\x16\x00\x00\x00" // lea rsi, [rip+22] (jump to after HACKED)
@@ -86,30 +82,36 @@ int main(int argc, char* argv[]) {
              "HACKED\n"
              "\x00\x00\x00\x00\x00\x00\x00" // placeholder for jmp address
         ;
-    size_t payload_size = sizeof(payload);
-    memcpy(&payload[payload_size - sizeof(size_t)], &ehdr->e_entry, sizeof(size_t));
+    size_t stub_size = sizeof(stub);
+    memcpy(&stub[stub_size - sizeof(size_t)], &ehdr->e_entry, sizeof(size_t));
 
-    // Adjust segment sizes
-    code_phdr->p_filesz += payload_size;
-    code_phdr->p_memsz += payload_size;
+    code_phdr->p_filesz += stub_size;
+    code_phdr->p_memsz += stub_size;
 
-    // Calculate where to place the new code
-    uint64_t exec_offset = code_phdr->p_offset + code_phdr->p_filesz;
-    uint64_t exec_vaddr = code_phdr->p_vaddr + code_phdr->p_filesz;
+    ehdr->e_entry = code_phdr->p_vaddr + code_phdr->p_filesz;
+    memcpy(buffer + code_phdr->p_offset + code_phdr->p_filesz, stub, stub_size);
+}
 
-    // Update the entry point
-    ehdr->e_entry = exec_vaddr;
-
-    // Resize the buffer to accommodate the new code
-    memcpy(buffer + exec_offset, payload, payload_size);
-
-    // Write the modified buffer back to the file
+static void pack(uint8_t* buffer, size_t filesize) {
     FILE* f = fopen("woody", "wb");
-    if (!f) error("fopen");
-    if (fwrite(buffer, 1, filesize + payload_size, f) != filesize + payload_size)
+    if (!f) {
+        free(buffer);
+        error("fopen");
+    }
+    if (fwrite(buffer, 1, filesize, f) != filesize) {
+        fclose(f);
+        free(buffer);
         error("fwrite");
-
+    }
     fclose(f);
+}
+
+int main(int argc, char* argv[]) {
+    if (argc != 2) panic("Usage: %s <input_binary>\n", argv[0]);
+    uint8_t* buffer;
+    size_t filesize = read_elf_file(argv[1], &buffer);
+    inject_stub(buffer);
+    pack(buffer, filesize);
     free(buffer);
-    return 0;
+    return EXIT_SUCCESS;
 }
