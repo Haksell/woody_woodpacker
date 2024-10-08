@@ -87,12 +87,19 @@ static void inject_stub(uint8_t* buffer) {
     Elf64_Phdr* code_phdr = find_code_header(ehdr);
 
     uint8_t stub
-        [] = "\x48\xc7\xc0\x01\x00\x00\x00" // mov rax, 1
+        [] = "\x50" // push rax
+             "\x57" // push rdi
+             "\x56" // push rsi
+             "\x52" // push rdx
+             "\x48\xc7\xc0\x01\x00\x00\x00" // mov rax, 1
              "\x48\xc7\xc7\x01\x00\x00\x00" // mov rdx, 1
-             "\x48\x8d\x35\x16\x00\x00\x00" // lea rsi, [rip+22]
+             "\x48\x8d\x35\x13\x00\x00\x00" // lea rsi, [rip+22]
              "\x48\xc7\xc2\x0e\x00\x00\x00" // mov rdx, 14
              "\x0f\x05" // syscall
-             "\x48\xc7\xc2\x00\x00\x00\x00" // mov rdx, 0
+             "\x5a" // pop rdx
+             "\x5e" // pop rsi
+             "\x5f" // pop rdi
+             "\x58" // pop rax
              "\xff\x25\x0e\x00\x00\x00" // jmp [rip+14]
              "....WOODY....\n"
              "\x00\x00\x00\x00\x00\x00\x00" // placeholder for jmp address
