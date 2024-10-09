@@ -1,0 +1,5 @@
+openssl enc -des-ecb -e -in input.txt -out output.txt -K b2a2d62eab19114f -provider legacy -provider default
+openssl enc -des-ecb -d -in output.txt -out decrypted.txt -K b2a2d62eab19114f -provider legacy -provider default
+
+openssl enc -des-cbc -e -in input.txt -out output.txt -K b2a2d62eab19114f -iv 1234567890abcdef -provider legacy -provider default
+openssl enc -des-cbc -d -in output.txt -out decrypted.txt -K b2a2d62eab19114f -iv 1234567890abcdef -provider legacy -provider default
