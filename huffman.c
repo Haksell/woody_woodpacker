@@ -127,10 +127,10 @@ void fill_bits(
             if (stack[i]) compressor->bits[bit_idx >> 6] |= 1llu << (bit_idx & 63);
         }
     } else {
+        fill_bits(compressor, tree->left, stack, depth + 1);
         stack[depth] = 1;
         fill_bits(compressor, tree->right, stack, depth + 1);
         stack[depth] = 0;
-        fill_bits(compressor, tree->left, stack, depth + 1);
     }
 }
 
