@@ -1,10 +1,4 @@
-#include <elf.h>
-#include <errno.h>
-#include <stdarg.h>
-#include <stdint.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+#include "../includes/woody.h"
 
 static void panic(const char* format, ...) {
     va_list args;
