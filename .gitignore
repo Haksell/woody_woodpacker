@@ -5,3 +5,13 @@ objs
 woody_woodpacker
 woody
 a.out
+.idea
+hello*
+
+ft_elf/.idea
+ft_elf/obj
+ft_elf/*.a
+
+ft_elf/libft/*.a
+ft_elf/libft/*/*.o
+
