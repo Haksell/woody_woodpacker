@@ -8,7 +8,7 @@ SRCS := $(wildcard */*.c */*/*.c)
 
 OBJS := $(SRCS:%.c=$(PATH_OBJS)/%.o)
 
-CC := gcc -std=gnu17 -Wall -Wextra -Werror
+CC := gcc -std=gnu17 -Wall -Wextra -Werror -g3
 CFLAGS := -I$(PATH_INCLUDES)
 
 AR := ar rc

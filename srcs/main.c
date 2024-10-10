@@ -67,6 +67,7 @@ static Elf64_Phdr* find_code_header(Elf64_Ehdr* ehdr) {
     //     }
     // }
     for (int i = 0; i < ehdr->e_phnum; i++) {
+        printf("@@ %d\n", i);
         if (phdr[i].p_type == PT_LOAD && (phdr[i].p_flags & PF_X)) {
             return phdr + i;
         }
@@ -76,6 +77,7 @@ static Elf64_Phdr* find_code_header(Elf64_Ehdr* ehdr) {
     return NULL;
 }
 
+/*
 static void check_text_section_has_enough_zeros(Elf64_Ehdr* ehdr, uint8_t* buffer, size_t stub_size) {
     Elf64_Phdr* code_phdr = find_code_header(ehdr);
 
@@ -83,7 +85,8 @@ static void check_text_section_has_enough_zeros(Elf64_Ehdr* ehdr, uint8_t* buffe
 
     for (size_t i = 0; i < stub_size; i++) {
         if (zero_mem[i] != 0) {
-            panic("There is not enough space to write the stub after the actual main code.");
+            printf("i = %lu\n",i);
+            //panic("There is not enough space to write the stub after the actual main code.");
         }
     }
 }
@@ -107,6 +110,7 @@ static void inject_stub(uint8_t* buffer) {
     ehdr->e_entry = code_phdr->p_vaddr + code_phdr->p_filesz;
     memcpy(buffer + code_phdr->p_offset + code_phdr->p_filesz, stub, stub_size);
 }
+*/
 
 static void pack(uint8_t* buffer, size_t filesize) {
     FILE* f = fopen("woody", "wb");
@@ -126,8 +130,14 @@ int main(int argc, char* argv[]) {
     if (argc != 2) panic("Usage: %s <input_binary>\n", argv[0]);
     uint8_t* buffer;
     size_t filesize = read_elf_file(argv[1], &buffer);
-    inject_stub(buffer);
-    pack(buffer, filesize);
-    free(buffer);
+    t_elf_ctx elf_ctx = {
+.buffer = buffer,
+        .ehdr = (Elf64_Ehdr*)buffer,
+        filesize
+    };
+    add_program_header(&elf_ctx, find_code_header((Elf64_Ehdr*)buffer));
+    //inject_stub(elf_ctx.buffer);
+    pack(elf_ctx.buffer, elf_ctx.file_size);
+    free(elf_ctx.buffer);
     return EXIT_SUCCESS;
 }
