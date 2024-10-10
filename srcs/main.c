@@ -82,26 +82,33 @@ static Elf64_Phdr* find_code_header(Elf64_Ehdr* ehdr) {
     return NULL;
 }
 
+static void check_text_section_has_enough_zeros(Elf64_Ehdr* ehdr, uint8_t* buffer, size_t stub_size) {
+    Elf64_Phdr* code_phdr = find_code_header(ehdr);
+
+    uint8_t* zero_mem = buffer + code_phdr->p_offset + code_phdr->p_filesz;
+
+    for (size_t i = 0; i < stub_size; i++) {
+        if (zero_mem[i] != 0) {
+            panic("There is not enough space to write the stub after the actual main code.");
+        }
+    }
+}
+
 static void inject_stub(uint8_t* buffer) {
     Elf64_Ehdr* ehdr = (Elf64_Ehdr*)buffer;
     Elf64_Phdr* code_phdr = find_code_header(ehdr);
 
     uint8_t stub
-        [] = "\x48\xc7\xc0\x01\x00\x00\x00" // mov rax, 1
-             "\x48\xc7\xc7\x01\x00\x00\x00" // mov rdx, 1
-             "\x48\x8d\x35\x16\x00\x00\x00" // lea rsi, [rip+22]
-             "\x48\xc7\xc2\x0e\x00\x00\x00" // mov rdx, 14
-             "\x0f\x05" // syscall
-             "\x48\xc7\xc2\x00\x00\x00\x00" // mov rdx, 0
-             "\xff\x25\x0e\x00\x00\x00" // jmp [rip+14]
-             "....WOODY....\n"
-             "\x00\x00\x00\x00\x00\x00\x00" // placeholder for jmp address
-        ;
+        [] = "\xeb\x14\xb8\x01\x00\x00\x00\xbf\x01\x00\x00\x00\x5e\xba\x0e\x00\x00\x00"
+             "\x0f\x05\xeb\x13\xe8\xe7\xff\xff\xff\x2e\x2e\x2e\x2e\x57\x4f\x4f\x44\x59"
+             "\x2e\x2e\x2e\x2e\x0a\x48\x31\xc0\x48\x31\xff\x48\x31\xd2\x48\x31\xf6\xff"
+             "\x25\x00\x00\x00\x00\xff\xff\xff\xff\xff\xff\xff";
     size_t stub_size = sizeof(stub);
+    check_text_section_has_enough_zeros(ehdr, buffer, stub_size);
     memcpy(&stub[stub_size - sizeof(size_t)], &ehdr->e_entry, sizeof(size_t));
 
-    code_phdr->p_filesz += stub_size;
-    code_phdr->p_memsz += stub_size;
+    //code_phdr->p_filesz += stub_size;
+    //code_phdr->p_memsz += stub_size;
 
     ehdr->e_entry = code_phdr->p_vaddr + code_phdr->p_filesz;
     memcpy(buffer + code_phdr->p_offset + code_phdr->p_filesz, stub, stub_size);
