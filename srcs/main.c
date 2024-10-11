@@ -52,6 +52,7 @@ size_t read_elf_file(const char* input_file, uint8_t** buffer) {
     return filesize;
 }
 
+/*
 static Elf64_Phdr* find_code_header(Elf64_Ehdr* ehdr) {
     Elf64_Phdr* phdr = (Elf64_Phdr*)((char*)ehdr + ehdr->e_phoff);
     // for (int i = 0; i < ehdr->e_phnum; i++) {
@@ -76,6 +77,7 @@ static Elf64_Phdr* find_code_header(Elf64_Ehdr* ehdr) {
     panic("No executable segment found.\n");
     return NULL;
 }
+*/
 
 /*
 static void check_text_section_has_enough_zeros(Elf64_Ehdr* ehdr, uint8_t* buffer, size_t stub_size) {
@@ -135,7 +137,7 @@ int main(int argc, char* argv[]) {
         .ehdr = (Elf64_Ehdr*)buffer,
         filesize
     };
-    add_program_header(&elf_ctx, find_code_header((Elf64_Ehdr*)buffer));
+    add_program_header(&elf_ctx /*,find_code_header((Elf64_Ehdr*)buffer)*/);
     //inject_stub(elf_ctx.buffer);
     pack(elf_ctx.buffer, elf_ctx.file_size);
     free(elf_ctx.buffer);

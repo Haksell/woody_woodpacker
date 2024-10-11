@@ -12,7 +12,7 @@ typedef struct {
 } t_elf_ctx;
 
 int sum(int a, int b);
-void add_program_header(t_elf_ctx *ctx, Elf64_Phdr *phdr);
+void add_program_header(t_elf_ctx *ctx/*, Elf64_Phdr *phdr*/);
 
 #endif //FT_ELF_H
 
