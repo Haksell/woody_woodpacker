@@ -13,9 +13,10 @@ int sum(int a, int b) {
 #include <stdlib.h>
 #include <stdint.h>
 
-void add_program_header(t_elf_ctx *ctx /*, Elf64_Phdr *new_phdr */) {
-    size_t phdr_size = sizeof(Elf64_Phdr);
-    size_t new_file_size = ctx->file_size + phdr_size;
+/*
+
+static void move_section_headers(t_elf_ctx *ctx, size_t offset) {
+    size_t new_file_size = ctx->file_size + offset;
 
     void *new_buffer = calloc(1, new_file_size);
     if (!new_buffer) {
@@ -23,15 +24,166 @@ void add_program_header(t_elf_ctx *ctx /*, Elf64_Phdr *new_phdr */) {
         return;
     }
 
-    size_t ph_table_end_offset = ctx->ehdr->e_phoff + ctx->ehdr->e_phnum * phdr_size;
+    size_t sh_table_end_offset = ctx->ehdr->e_shoff;
 
-    memcpy(new_buffer, ctx->buffer, ph_table_end_offset);
+    memcpy(new_buffer, ctx->buffer, sh_table_end_offset);
 
-    memcpy((uint8_t *)new_buffer + ph_table_end_offset + phdr_size,
-           (uint8_t *)ctx->buffer + ph_table_end_offset,
-           ctx->file_size - ph_table_end_offset);
+    memcpy((uint8_t *)new_buffer + sh_table_end_offset + offset,
+           (uint8_t *)ctx->buffer + sh_table_end_offset,
+           ctx->file_size - sh_table_end_offset);
 
     Elf64_Ehdr *new_ehdr = (Elf64_Ehdr *)new_buffer;
+
+    new_ehdr->e_shoff += offset;
+
+    free(ctx->buffer);
+    ctx->buffer = new_buffer;
+    ctx->ehdr = new_ehdr;
+    ctx->file_size = new_file_size;
+}
+
+static Elf64_Phdr* find_executable_program_header(Elf64_Ehdr* ehdr) {
+    Elf64_Phdr* phdr = (Elf64_Phdr*)((char*)ehdr + ehdr->e_phoff);  // Start of program headers
+    Elf64_Phdr* res = NULL;
+
+    for (uint16_t i = 0; i < ehdr->e_phnum; i++) {
+        if (phdr[i].p_type == PT_LOAD && (phdr[i].p_flags & PF_X)) {
+            if (!res) {
+                res = &phdr[i];
+            } else {
+                printf("Found more executable program headers at index %u\n", i);
+            }
+        }
+    }
+
+    return res;
+}
+
+Elf64_Phdr* get_last_phdr(Elf64_Ehdr* ehdr) {
+    if (ehdr == NULL) {
+        return NULL;
+    }
+
+    Elf64_Phdr* phdr = (Elf64_Phdr*)((char*)ehdr + ehdr->e_phoff);
+
+    int phnum = ehdr->e_phnum;
+
+    return &phdr[phnum - 1];
+}
+*/
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <elf.h>
+
+
+void append_segment_to_file_end(t_elf_ctx *ctx, Elf64_Phdr *phdr, size_t guaranteed_size) {
+    // Calculate new segment sizes
+    size_t new_segment_filesz = phdr->p_filesz + guaranteed_size;
+    size_t new_segment_memsz = phdr->p_memsz + guaranteed_size;
+
+    // Calculate new file size
+    size_t new_file_size = ctx->file_size + guaranteed_size;
+
+    // Allocate new buffer
+    void *new_buffer = calloc(1, new_file_size);
+    if (!new_buffer) {
+        fprintf(stderr, "Failed to allocate memory\n");
+        return;
+    }
+
+    // Copy the original file into the new buffer
+    memcpy(new_buffer, ctx->buffer, ctx->file_size);
+
+    // Get pointers to the ELF header and program headers in the new buffer
+    Elf64_Ehdr *new_ehdr = (Elf64_Ehdr *)new_buffer;
+    Elf64_Phdr *new_phdrs = (Elf64_Phdr *)((char *)new_buffer + new_ehdr->e_phoff);
+
+    // Calculate the index of the program header to modify
+    size_t phdr_index = phdr - (Elf64_Phdr *)((char *)ctx->buffer + ctx->ehdr->e_phoff);
+    if (phdr_index >= new_ehdr->e_phnum) {
+        fprintf(stderr, "Invalid program header index\n");
+        free(new_buffer);
+        return;
+    }
+
+    // Get the program header in the new buffer
+    Elf64_Phdr *new_phdr = &new_phdrs[phdr_index];
+
+    // Store old offsets and addresses
+    size_t segment_old_offset = new_phdr->p_offset;
+    //Elf64_Addr segment_old_vaddr = new_phdr->p_vaddr;
+
+    // Calculate new offset aligned to p_align
+    size_t new_offset = ctx->file_size;
+    if (new_phdr->p_align > 0) {
+        new_offset = (new_offset + new_phdr->p_align - 1) & ~(new_phdr->p_align - 1);
+    }
+
+    // Adjust virtual address based on new offset
+    // Maintain the relationship between p_vaddr and p_offset
+    Elf64_Addr delta_offset = new_offset - new_phdr->p_offset;
+    Elf64_Addr new_vaddr = new_phdr->p_vaddr + delta_offset;
+
+    // Ensure the new virtual address is aligned
+    if (new_phdr->p_align > 0) {
+        new_vaddr = (new_vaddr + new_phdr->p_align - 1) & ~(new_phdr->p_align - 1);
+    }
+
+    // Update the program header in the new buffer
+    new_phdr->p_offset = new_offset;
+    new_phdr->p_vaddr = new_vaddr;
+    new_phdr->p_paddr = new_vaddr;
+    new_phdr->p_filesz = new_segment_filesz;
+    new_phdr->p_memsz = new_segment_memsz;
+
+    new_ehdr->e_entry = new_vaddr + 0x40;
+
+    // Copy the segment data to the new location in the new buffer
+    memcpy((char *)new_buffer + new_offset,
+           (char *)ctx->buffer + segment_old_offset,
+           phdr->p_filesz);
+
+    // Zero-fill the additional space (already zeroed by calloc)
+    // You can inject your code into this space if needed
+
+    // Update the context
+    free(ctx->buffer);
+    ctx->buffer = new_buffer;
+    ctx->file_size = new_file_size;
+    ctx->ehdr = new_ehdr;
+}
+
+
+
+
+
+
+    /*
+void add_program_header(t_elf_ctx *ctx) {
+    //TODO: don't hardcode here. Some articles says that section headers are optional. test it.
+    size_t offset = 4096;
+
+    move_section_headers(ctx, offset);
+
+    Elf64_Phdr *executable_phdr = find_executable_program_header(ctx->ehdr);
+
+    Elf64_Phdr *next_after_executable = NEXT_PHDR(executable_phdr, ctx->ehdr);
+
+    printf("Next after executable header: offset %lx, virtaddr %lx\n", next_after_executable->p_offset, next_after_executable->p_vaddr);
+
+    Elf64_Phdr *last_program_header = get_last_phdr(ctx->ehdr);
+
+    printf("Last program header: offset %lx, virtaddr %lx\n", last_program_header->p_offset, last_program_header->p_vaddr);
+}
+
+    */
+/*
+
+void add_program_header2(t_elf_ctx *ctx , Elf64_Phdr *new_phdr ) {
+
+
 
     if (new_ehdr->e_shoff >= ph_table_end_offset) {
         new_ehdr->e_shoff += phdr_size;
@@ -216,14 +368,11 @@ void add_program_header(t_elf_ctx *ctx /*, Elf64_Phdr *new_phdr */) {
         }
     }
 
-    free(ctx->buffer);
-    ctx->buffer = new_buffer;
-    ctx->ehdr = new_ehdr;
-    ctx->file_size = new_file_size;
+
 }
 
 
-
+*/
 
 
 

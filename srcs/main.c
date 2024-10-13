@@ -52,20 +52,8 @@ size_t read_elf_file(const char* input_file, uint8_t** buffer) {
     return filesize;
 }
 
-/*
 static Elf64_Phdr* find_code_header(Elf64_Ehdr* ehdr) {
     Elf64_Phdr* phdr = (Elf64_Phdr*)((char*)ehdr + ehdr->e_phoff);
-    // for (int i = 0; i < ehdr->e_phnum; i++) {
-    //     printf(
-    //         "%d: %#x %c%c%c\n",
-    //         i,
-    //         phdr[i].p_type,
-    //         (phdr[i].p_flags & PF_R) ? 'R' : '.',
-    //         (phdr[i].p_flags & PF_W) ? 'W' : '.',
-    //         (phdr[i].p_flags & PF_X) ? 'X' : '.'
-    //     );
-    //     if (phdr[i].p_type == PT_LOAD && (phdr[i].p_flags & PF_X)) {
-    //     }
     // }
     for (int i = 0; i < ehdr->e_phnum; i++) {
         printf("@@ %d\n", i);
@@ -77,7 +65,6 @@ static Elf64_Phdr* find_code_header(Elf64_Ehdr* ehdr) {
     panic("No executable segment found.\n");
     return NULL;
 }
-*/
 
 /*
 static void check_text_section_has_enough_zeros(Elf64_Ehdr* ehdr, uint8_t* buffer, size_t stub_size) {
@@ -94,6 +81,27 @@ static void check_text_section_has_enough_zeros(Elf64_Ehdr* ehdr, uint8_t* buffe
 }
 
 static void inject_stub(uint8_t* buffer) {
+returnentry: 401040
+➜  woody_woodpacker git:(shit_but_not_completely) ✗ bingrep woody
+ELF EXEC X86_64-little-endian @ 0x401040:
+
+e_phoff: 0x40 e_shoff: 0x3158 e_flags: 0x0 e_ehsize: 64 e_phentsize: 56 e_phnum: 13 e_shentsize: 64 e_shnum: 28 e_shstrndx: 27
+
+ProgramHeaders(13):
+  Idx   Type              Flags   Offset    Vaddr       Paddr       Filesz   Memsz    Align
+  0     PT_PHDR           R       0x40      0x400040    0x400040    0x2d8    0x2d8    0x8
+  1     PT_INTERP         R       0x318     0x400318    0x400318    0x1c     0x1c     0x1
+  2     PT_LOAD           R       0x0       0x400000    0x400000    0x5a8    0x5a8    0x1000
+  3     PT_LOAD           R+X     0x3858    0x401000    0x401000    0x14d    0x14d    0x1000
+  4     PT_LOAD           R       0x2000    0x402000    0x402000    0xcc     0xcc     0x1000
+  5     PT_LOAD           RW      0x2de8    0x403de8    0x403de8    0x230    0x238    0x1000
+  6     PT_DYNAMIC        RW      0x2df8    0x403df8    0x403df8    0x1d0    0x1d0    0x8
+  7     PT_NOTE           R       0x338     0x400338    0x400338    0x40     0x40     0x8
+  8     PT_NOTE           R       0x378     0x400378    0x400378    0x44     0x44     0x4
+  9     PT_GNU_PROPERTY   R       0x338     0x400338    0x400338    0x40     0x40     0x8
+  10    PT_GNU_EH_FRAME   R       0x2014    0x402014    0x402014    0x2c     0x2c     0x4
+  11    PT_GNU_STACK      RW      0x0       0x0         0x0         0x0      0x0      0x10
+  12    PT_GNU_RELRO      R       0x2de8    0x403de8    0x403de8    0x218    0x218    0x1  ;
     Elf64_Ehdr* ehdr = (Elf64_Ehdr*)buffer;
     Elf64_Phdr* code_phdr = find_code_header(ehdr);
 
@@ -106,8 +114,8 @@ static void inject_stub(uint8_t* buffer) {
     check_text_section_has_enough_zeros(ehdr, buffer, stub_size);
     memcpy(&stub[stub_size - sizeof(size_t)], &ehdr->e_entry, sizeof(size_t));
 
-    //code_phdr->p_filesz += stub_size;
-    //code_phdr->p_memsz += stub_size;
+    code_phdr->p_filesz += stub_size;
+    code_phdr->p_memsz += stub_size;
 
     ehdr->e_entry = code_phdr->p_vaddr + code_phdr->p_filesz;
     memcpy(buffer + code_phdr->p_offset + code_phdr->p_filesz, stub, stub_size);
@@ -137,7 +145,8 @@ int main(int argc, char* argv[]) {
         .ehdr = (Elf64_Ehdr*)buffer,
         filesize
     };
-    add_program_header(&elf_ctx /*,find_code_header((Elf64_Ehdr*)buffer)*/);
+    //add_program_header(&elf_ctx /*,find_code_header((Elf64_Ehdr*)buffer)*/);
+    append_segment_to_file_end(&elf_ctx, find_code_header(elf_ctx.ehdr), 4096);
     //inject_stub(elf_ctx.buffer);
     pack(elf_ctx.buffer, elf_ctx.file_size);
     free(elf_ctx.buffer);
