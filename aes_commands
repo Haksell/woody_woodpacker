@@ -1,0 +1,5 @@
+openssl enc -aes-256-ecb -e -in input.txt -out output.txt -K 3fe0903e639850da0ec80dafee35af6c2af26cfc5e76d5499571ad13714b7ab5
+openssl enc -aes-256-ecb -d -in output.txt -out decrypted.txt -K 3fe0903e639850da0ec80dafee35af6c2af26cfc5e76d5499571ad13714b7ab5
+
+openssl enc -aes-256-cbc -e -in input.txt -out output.txt -K 3fe0903e639850da0ec80dafee35af6c2af26cfc5e76d5499571ad13714b7ab5 -iv e0e9da592b4b6450f875bc9b507191dc4093523b280cc8e043658b6ef4ac2a7d
+openssl enc -aes-256-cbc -d -in output.txt -out decrypted.txt -K 3fe0903e639850da0ec80dafee35af6c2af26cfc5e76d5499571ad13714b7ab5 -iv e0e9da592b4b6450f875bc9b507191dc4093523b280cc8e043658b6ef4ac2a7d
